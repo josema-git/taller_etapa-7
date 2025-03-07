@@ -1,6 +1,12 @@
 from rest_framework import serializers
-from .models import Blogger
 from django.contrib.auth.models import User, Group
+from rest_framework.authtoken.models import Token
+from django.db.utils import IntegrityError
+from rest_framework.response import Response
+from rest_framework import status
+
+from .models import Blogger
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -8,12 +14,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'team']
+        fields = ['username', 'password', 're-password' , 'team']
 
     def validate(self, data):
-        if User.objects.filter(username = data['username'].exists()):
+        if data['password'] != data['re-password']:
+            raise serializers.ValidationError({'password': 'Passwords do not match'})
+        if User.objects.filter(username=data['username']).exists():
             raise serializers.ValidationError({'username': 'Username already exists'})
-        return  data
+        return data
     
     def create(self, validated_data):
         team_name = validated_data.pop('team', 'default_team')
@@ -26,10 +34,11 @@ class RegisterSerializer(serializers.ModelSerializer):
 
             team = Group.objects.get_or_create(name=team_name)
             Blogger.objects.create(user=user, team=team)
-            return user
-        
-        except:
+            token = Token.objects.create(user=user)
+        except IntegrityError:
             raise serializers.ValidationError({'error': 'User creation failed'})
+
+        return Response({'message': 'User created successfully', 'token': token.key}, status=status.HTTP_201_CREATED)
         
 class LoginSerializer(serializers.ModelSerializer):
     username = serializers.CharField() 
