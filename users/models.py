@@ -1,11 +1,6 @@
-from django.contrib.auth.models import User
 from django.db import models
+from django.contrib.auth.models import AbstractUser, Group
 
 # Create your models here.
-    
-class Blogger(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    team = models.CharField(max_length=50, default='team_default')
-
-    def __str__(self):
-        return self.user.username
+class User(AbstractUser):
+    group = models.ForeignKey(Group, on_delete=models.SET_DEFAULT, default='default_team' , related_name='users')

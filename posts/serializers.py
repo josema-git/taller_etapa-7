@@ -11,7 +11,7 @@ class PostListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Post
-        fields = ['id', 'author', 'title', 'content', 'likes', 'comments', 'team', 'creatted_at', 'updated_at'
+        fields = ['id', 'author', 'title', 'content', 'likes', 'comments', 'team', 'created_at', 'updated_at'
                   'is_public', 'authenticated_permission', 'group_permission']
         
         def get_likes(self, obj):
