@@ -969,11 +969,10 @@ class LikesListsTestCase(TestCase):
         })
         response = self.client.get(reverse('likes', kwargs={'post_pk': self.public_post.id}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        # Accede a 'author' usando la notación de diccionario
-        self.assertEqual(response.data['results'][0]['author'], 'poster')
-        self.assertEqual(response.data['results'][1]['author'], 'liker1')
-        self.assertEqual(response.data['results'][2]['author'], 'liker2')
+        self.assertEqual(len(response.data['results']), 3)
+        self.assertEqual(response.data['results'][0]['author_name'], 'poster')
+        self.assertEqual(response.data['results'][1]['author_name'], 'liker1')
+        self.assertEqual(response.data['results'][2]['author_name'], 'liker2')
         self.client.post(reverse('logout'))
     
     def test_get_likes_as_user(self):
@@ -983,18 +982,358 @@ class LikesListsTestCase(TestCase):
         })
         response = self.client.get(reverse('likes', kwargs={'post_pk': self.public_post.id}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        # Accede a 'author' usando la notación de diccionario
-        self.assertEqual(response.data['results'][0]['author'], 'poster')
-        self.assertEqual(response.data['results'][1]['author'], 'liker1')
-        self.assertEqual(response.data['results'][2]['author'], 'liker2')
+        self.assertEqual(len(response.data['results']), 3)
+        self.assertEqual(response.data['results'][0]['author_name'], 'poster')
+        self.assertEqual(response.data['results'][1]['author_name'], 'liker1')
+        self.assertEqual(response.data['results'][2]['author_name'], 'liker2')
         self.client.post(reverse('logout'))
     
     def test_get_likes_as_anonymous(self):
         response = self.client.get(reverse('likes', kwargs={'post_pk': self.public_post.id}))
+        self.assertEqual(len(response.data['results']), 3)
+        self.assertEqual(response.data['results'][0]['author_name'], 'poster')
+        self.assertEqual(response.data['results'][1]['author_name'], 'liker1')
+        self.assertEqual(response.data['results'][2]['author_name'], 'liker2')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # Accede a 'author' usando la notación de diccionario
-        self.assertEqual(response.data['results'][0]['author'], 'poster')
-        self.assertEqual(response.data['results'][1]['author'], 'liker1')
-        self.assertEqual(response.data['results'][2]['author'], 'liker2')
+class LikesAllOrFilteredByAuthorTestCase(TestCase):
+    def setUp(self):
+        self.client.post(reverse('register'), {
+            'username': 'poster',
+            'password': 'testpassword',
+            'group_name': 'testgroup1'
+        })
+        self.user = User.objects.get(username='poster')
+        self.public_post = Post.objects.create(
+            title='publicpost', content='publiccontent', is_public=1, group_name='testgroup1',
+            authenticated_permission=2, group_permission=2, author_permission=2, author=self.user
+        )
+        self.authenticated_post = Post.objects.create(
+            title='authenticatedpost', content='authenticatedcontent', is_public=0, group_name='testgroup1',
+            authenticated_permission=2, group_permission=2, author_permission=2, author=self.user
+        )
+        self.group_post = Post.objects.create(
+            title='grouppost', content='groupcontent', is_public=0, group_name='testgroup1',
+            authenticated_permission=0, group_permission=2, author_permission=2, author=self.user
+        )
+        self.private_post = Post.objects.create(
+            title='privatepost', content='privatecontent', is_public=0, group_name='testgroup1',
+            authenticated_permission=0, group_permission=0, author_permission=2, author=self.user
+        )
+        self.public_like = Like.objects.create(author=self.user, post=self.public_post)
+        self.authenticated_like = Like.objects.create(author=self.user, post=self.authenticated_post)
+        self.group_like = Like.objects.create(author=self.user, post=self.group_post)
+        self.private_like = Like.objects.create(author=self.user, post=self.private_post)
+        self.client.post(reverse('register'),{
+            'username': 'liker1',
+            'password': 'testpassword',
+            'group_name': 'testgroup1'
+        })
+        self.liker1 = User.objects.get(username='liker1')
+        self.public_like1 = Like.objects.create(author=self.liker1, post=self.public_post)
+        self.authenticated_like1 = Like.objects.create(author=self.liker1, post=self.authenticated_post)
+        self.group_like1 = Like.objects.create(author=self.liker1, post=self.group_post)
+
+    def test_get_all_likes_as_author_or_superuser(self):
+        self.client.post(reverse('login'), {
+            'username': 'poster',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('all_likes'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 7)
+        self.client.post(reverse('logout'))
+    
+    def test_get_all_likes_as_user(self):
+        self.client.post(reverse('login'), {
+            'username': 'liker1',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('all_likes'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 6)
+        self.client.post(reverse('logout'))
+
+    def test_get_all_likes_as_diff_group_user(self):
+        self.client.post(reverse('register'),{
+            'username': 'liker2',
+            'password': 'testpassword',
+            'group_name': 'testgroup2'
+        })
+        self.client.post(reverse('login'), {
+            'username': 'liker2',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('all_likes'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 4)
+        self.client.post(reverse('logout'))
+    
+    def test_get_all_likes_as_anonymous(self):
+        response = self.client.get(reverse('all_likes'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+
+    def test_get_likes_filtered_by_author_as_author_or_superuser(self):
+        self.client.post(reverse('login'), {
+            'username': 'poster',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('specific_user_likes', kwargs={'user_pk': self.user.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 4)
+        response = self.client.get(reverse('specific_user_likes', kwargs={'user_pk': self.liker1.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 3)
+        self.client.post(reverse('logout'))
+    
+    def test_get_likes_filtered_by_author_as_user(self):
+        self.client.post(reverse('login'), {
+            'username': 'liker1',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('specific_user_likes', kwargs={'user_pk': self.user.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 3)
+        response = self.client.get(reverse('specific_user_likes', kwargs={'user_pk': self.liker1.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 3)
+        self.client.post(reverse('logout'))
+    
+    def test_get_likes_filtered_by_author_as_anonymous(self):
+        response = self.client.get(reverse('specific_user_likes', kwargs={'user_pk': self.user.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        response = self.client.get(reverse('specific_user_likes', kwargs={'user_pk': self.liker1.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+
+class CommentsListsTestCase(TestCase):
+    def setUp(self):
+        self.client.post(reverse('register'), {
+            'username': 'poster',
+            'password': 'testpassword',
+            'group_name': 'testgroup1'
+        })
+        self.user = User.objects.get(username='poster')
+        self.public_post = Post.objects.create(
+            title='publicpost', content='publiccontent', is_public=1, group_name='testgroup1',
+            authenticated_permission=2, group_permission=2, author_permission=2, author=self.user
+        )
+        self.authenticated_post = Post.objects.create(
+            title='authenticatedpost', content='authenticatedcontent', is_public=0, group_name='testgroup1',
+            authenticated_permission=2, group_permission=2, author_permission=2, author=self.user
+        )
+        self.group_post = Post.objects.create(
+            title='grouppost', content='groupcontent', is_public=0, group_name='testgroup1',
+            authenticated_permission=0, group_permission=2, author_permission=2, author=self.user
+        )
+        self.private_post = Post.objects.create(
+            title='privatepost', content='privatecontent', is_public=0, group_name='testgroup1',
+            authenticated_permission=0, group_permission=0, author_permission=2, author=self.user
+        )
+        self.public_comment = Comment.objects.create(
+            content='publiccomment', author=self.user, post=self.public_post
+        )
+        self.authenticated_comment = Comment.objects.create(
+            content='authenticatedcomment', author=self.user, post=self.authenticated_post
+        )
+        self.group_comment = Comment.objects.create(
+            content='groupcomment', author=self.user, post=self.group_post
+        )
+        self.private_comment = Comment.objects.create(
+            content='privatecomment', author=self.user, post=self.private_post
+        )
+        self.client.post(reverse('register'),{
+            'username': 'commenter1',
+            'password': 'testpassword',
+            'group_name': 'testgroup1'
+        })
+        self.commenter1 = User.objects.get(username='commenter1')
+        self.public_comment1 = Comment.objects.create(
+            content='publiccomment1', author=self.commenter1, post=self.public_post
+        )
+        self.authenticated_comment1 = Comment.objects.create(
+            content='authenticatedcomment1', author=self.commenter1, post=self.authenticated_post
+        )
+        self.group_comment1 = Comment.objects.create(
+            content='groupcomment1', author=self.commenter1, post=self.group_post
+        )
+
+    def test_get_comments_as_author_or_superuser(self):
+        self.client.post(reverse('login'), {
+            'username': 'poster',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.public_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.authenticated_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.group_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.private_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        self.client.post(reverse('logout'))
+
+    def test_get_comments_as_user(self):
+        self.client.post(reverse('login'), {
+            'username': 'commenter1',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.public_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.authenticated_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.group_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.private_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.post(reverse('logout'))
+    
+    def test_get_comments_as_anonymous(self):
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.public_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.authenticated_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.group_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+        response = self.client.get(reverse('comments', kwargs={'post_pk': self.private_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    
+class CommentsAllOrFilteredByAuthorTestCase(TestCase):
+    def setUp(self):
+        self.client.post(reverse('register'), {
+            'username': 'poster',
+            'password': 'testpassword',
+            'group_name': 'testgroup1'
+        })
+        self.user = User.objects.get(username='poster')
+        self.public_post = Post.objects.create(
+            title='publicpost', content='publiccontent', is_public=1, group_name='testgroup1',
+            authenticated_permission=2, group_permission=2, author_permission=2, author=self.user
+        )
+        self.authenticated_post = Post.objects.create(
+            title='authenticatedpost', content='authenticatedcontent', is_public=0, group_name='testgroup1',
+            authenticated_permission=2, group_permission=2, author_permission=2, author=self.user
+        )
+        self.group_post = Post.objects.create(
+            title='grouppost', content='groupcontent', is_public=0, group_name='testgroup1',
+            authenticated_permission=0, group_permission=2, author_permission=2, author=self.user
+        )
+        self.private_post = Post.objects.create(
+            title='privatepost', content='privatecontent', is_public=0, group_name='testgroup1',
+            authenticated_permission=0, group_permission=0, author_permission=2, author=self.user
+        )
+        self.public_comment = Comment.objects.create(
+            content='publiccomment', author=self.user, post=self.public_post
+        )
+        self.authenticated_comment = Comment.objects.create(
+            content='authenticatedcomment', author=self.user, post=self.authenticated_post
+        )
+        self.group_comment = Comment.objects.create(
+            content='groupcomment', author=self.user, post=self.group_post
+        )
+        self.private_comment = Comment.objects.create(
+            content='privatecomment', author=self.user, post=self.private_post
+        )
+        self.client.post(reverse('register'),{
+            'username': 'commenter1',
+            'password': 'testpassword',
+            'group_name': 'testgroup1'
+        })
+        self.commenter1 = User.objects.get(username='commenter1')
+        self.public_comment1 = Comment.objects.create(
+            content='publiccomment1', author=self.commenter1, post=self.public_post
+        )
+        self.authenticated_comment1 = Comment.objects.create(
+            content='authenticatedcomment1', author=self.commenter1, post=self.authenticated_post
+        )
+        self.group_comment1 = Comment.objects.create(
+            content='groupcomment1', author=self.commenter1, post=self.group_post
+        )
+
+    def test_get_all_comments_as_author_or_superuser(self):
+        self.client.post(reverse('login'), {
+            'username': 'poster',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('all_comments'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 7)
+        self.client.post(reverse('logout'))
+    
+    def test_get_all_comments_as_user(self):
+        self.client.post(reverse('login'), {
+            'username': 'commenter1',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('all_comments'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 6)
+        self.client.post(reverse('logout'))
+    
+    def test_get_all_comments_as_diff_group_user(self):
+        self.client.post(reverse('register'),{
+            'username': 'commenter2',
+            'password': 'testpassword',
+            'group_name': 'testgroup2'
+        })
+        self.client.post(reverse('login'), {
+            'username': 'commenter2',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('all_comments'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 4)
+        self.client.post(reverse('logout'))
+
+    def test_get_all_comments_as_anonymous(self):
+        response = self.client.get(reverse('all_comments'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+
+    def test_get_comments_filtered_by_author_as_author_or_superuser(self):
+        self.client.post(reverse('login'), {
+            'username': 'poster',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('specific_user_comments', kwargs={'user_pk': self.user.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 4)
+        response = self.client.get(reverse('specific_user_comments', kwargs={'user_pk': self.commenter1.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 3)
+        self.client.post(reverse('logout'))
+    
+    def test_get_comments_filtered_by_author_as_user(self):
+        self.client.post(reverse('login'), {
+            'username': 'commenter1',
+            'password': 'testpassword'
+        })
+        response = self.client.get(reverse('specific_user_comments', kwargs={'user_pk': self.user.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 3)
+        response = self.client.get(reverse('specific_user_comments', kwargs={'user_pk': self.commenter1.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 3)
+        self.client.post(reverse('logout'))
+    
+    def test_get_comments_filtered_by_author_as_anonymous(self):
+        response = self.client.get(reverse('specific_user_comments', kwargs={'user_pk': self.user.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        response = self.client.get(reverse('specific_user_comments', kwargs={'user_pk': self.commenter1.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+
+    

@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.auth.models import User
+from users.models import User
 
 from .pagination import PostPagination, CommentPagination, LikePagination
 from .models import Post, Comment, Like
@@ -257,9 +257,13 @@ class LikeViewset(viewsets.ModelViewSet):
             like = Like.objects.get(pk=pk)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         if request.user != like.author:
             return Response({'error': 'You do not have permission to delete this like'}, status=status.HTTP_403_FORBIDDEN)
+        
+        if not VisibleAndEditableBlogs().has_read_permission(request, like.post):
+            return Response({'error': 'You do not have permission to delete this like'}, status=status.HTTP_403_FORBIDDEN)
+
         like.delete()
         return Response({'success': 'Like deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -269,6 +273,9 @@ class LikeViewset(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
         if request.user != like.author:
+            return Response({'error': 'You do not have permission to view this like'}, status=status.HTTP_404_NOT_FOUND)
+        
+        if not VisibleAndEditableBlogs().has_read_permission(request, like.post):
             return Response({'error': 'You do not have permission to view this like'}, status=status.HTTP_404_NOT_FOUND)
         serializer = LikeSerializer(like)
         return Response(serializer.data, status=status.HTTP_200_OK)
