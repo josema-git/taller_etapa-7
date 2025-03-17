@@ -266,16 +266,3 @@ class LikeViewset(viewsets.ModelViewSet):
 
         like.delete()
         return Response({'success': 'Like deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
-
-    def retrieve(self, request, pk):
-        try:
-            like = Like.objects.get(pk=pk)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
-        if request.user != like.author:
-            return Response({'error': 'You do not have permission to view this like'}, status=status.HTTP_404_NOT_FOUND)
-        
-        if not VisibleAndEditableBlogs().has_read_permission(request, like.post):
-            return Response({'error': 'You do not have permission to view this like'}, status=status.HTTP_404_NOT_FOUND)
-        serializer = LikeSerializer(like)
-        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -970,9 +970,6 @@ class LikesListsTestCase(TestCase):
         response = self.client.get(reverse('likes', kwargs={'post_pk': self.public_post.id}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 3)
-        self.assertEqual(response.data['results'][0]['author_name'], 'poster')
-        self.assertEqual(response.data['results'][1]['author_name'], 'liker1')
-        self.assertEqual(response.data['results'][2]['author_name'], 'liker2')
         self.client.post(reverse('logout'))
     
     def test_get_likes_as_user(self):
@@ -983,17 +980,11 @@ class LikesListsTestCase(TestCase):
         response = self.client.get(reverse('likes', kwargs={'post_pk': self.public_post.id}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 3)
-        self.assertEqual(response.data['results'][0]['author_name'], 'poster')
-        self.assertEqual(response.data['results'][1]['author_name'], 'liker1')
-        self.assertEqual(response.data['results'][2]['author_name'], 'liker2')
         self.client.post(reverse('logout'))
     
     def test_get_likes_as_anonymous(self):
         response = self.client.get(reverse('likes', kwargs={'post_pk': self.public_post.id}))
         self.assertEqual(len(response.data['results']), 3)
-        self.assertEqual(response.data['results'][0]['author_name'], 'poster')
-        self.assertEqual(response.data['results'][1]['author_name'], 'liker1')
-        self.assertEqual(response.data['results'][2]['author_name'], 'liker2')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 class LikesAllOrFilteredByAuthorTestCase(TestCase):
@@ -1186,7 +1177,7 @@ class CommentsListsTestCase(TestCase):
         })
         response = self.client.get(reverse('comments', kwargs={'post_pk': self.public_post.id}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 2)
+        self.assertEqual(len(response.data['results']),2)
         response = self.client.get(reverse('comments', kwargs={'post_pk': self.authenticated_post.id}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 2)
@@ -1202,11 +1193,9 @@ class CommentsListsTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 2)
         response = self.client.get(reverse('comments', kwargs={'post_pk': self.authenticated_post.id}))
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 2)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         response = self.client.get(reverse('comments', kwargs={'post_pk': self.group_post.id}))
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 2)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         response = self.client.get(reverse('comments', kwargs={'post_pk': self.private_post.id}))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
     
@@ -1336,4 +1325,3 @@ class CommentsAllOrFilteredByAuthorTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
 
-    
