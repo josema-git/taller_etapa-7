@@ -15,10 +15,7 @@ class Pagination(PageNumberPagination):
             'results': data
         })
 
-class PostPagination(Pagination):
-    page_size = 10
-
-class CommentPagination(Pagination):
+class PostCommentPagination(Pagination):
     page_size = 10
 
 class LikePagination(Pagination):

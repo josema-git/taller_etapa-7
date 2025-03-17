@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from users.models import User
 
-from .pagination import PostPagination, CommentPagination, LikePagination
+from .pagination import PostCommentPagination, LikePagination
 from .models import Post, Comment, Like
 from .serializers import PostListSerializer, PostDetailSerializer , LikeSerializer, CommentSerializer
 from .permissions import VisibleAndEditableBlogs
@@ -11,7 +11,7 @@ from .permissions import VisibleAndEditableBlogs
 class PostViewset(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostListSerializer
-    pagination_class = PostPagination
+    pagination_class = PostCommentPagination
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -87,7 +87,7 @@ class PostViewset(viewsets.ModelViewSet):
 class CommentViewset(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    pagination_class = CommentPagination
+    pagination_class = PostCommentPagination
 
     def create(self, request, post_pk):
         if not request.user.is_authenticated:
@@ -112,8 +112,9 @@ class CommentViewset(viewsets.ModelViewSet):
             return Response({'error': 'You do not have permission to view comments on this post'}, status=status.HTTP_403_FORBIDDEN)
 
         comments = Comment.objects.filter(post=post)
+        visible_comments = sorted(comments, key=lambda comment: comment.created_at, reverse=True)
         paginator = self.pagination_class()
-        result_page = paginator.paginate_queryset(comments, request)
+        result_page = paginator.paginate_queryset(visible_comments, request)
         serializer = CommentSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
     
@@ -130,6 +131,7 @@ class CommentViewset(viewsets.ModelViewSet):
             if VisibleAndEditableBlogs().has_read_permission(request, comment.post):
                 visible_comments.append(comment)
         
+        visible_comments = sorted(visible_comments, key=lambda comment: comment.created_at, reverse=True)
         paginator = self.pagination_class()
         result_page = paginator.paginate_queryset(visible_comments, request)
         serializer = CommentSerializer(result_page, many=True)
@@ -141,6 +143,8 @@ class CommentViewset(viewsets.ModelViewSet):
         for comment in comments:
             if VisibleAndEditableBlogs().has_read_permission(request, comment.post):
                 visible_comments.append(comment)
+        
+        visible_comments = sorted(visible_comments, key=lambda comment: comment.created_at, reverse=True)
         paginator = self.pagination_class()
         result_page = paginator.paginate_queryset(visible_comments, request)
         serializer = CommentSerializer(result_page, many=True)
@@ -198,8 +202,9 @@ class LikeViewset(viewsets.ModelViewSet):
             return Response({'error': 'You do not have permission to view likes on this post'}, status=status.HTTP_403_FORBIDDEN)
         
         likes = Like.objects.filter(post=post)
+        visible_likes = sorted(likes, key=lambda like: like.created_at, reverse=True)
         paginator = self.pagination_class()
-        result_page = paginator.paginate_queryset(likes, request)
+        result_page = paginator.paginate_queryset(visible_likes, request)
         serializer = LikeSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
     
@@ -229,6 +234,7 @@ class LikeViewset(viewsets.ModelViewSet):
             if VisibleAndEditableBlogs().has_read_permission(request, like.post):
                 visible_likes.append(like)
         
+        visible_likes = sorted(visible_likes, key=lambda like: like.created_at, reverse=True)
         paginator = self.pagination_class()
         result_page = paginator.paginate_queryset(visible_likes, request)
         serializer = LikeSerializer(result_page, many=True)

@@ -1325,3 +1325,73 @@ class CommentsAllOrFilteredByAuthorTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
 
+class CascadeRemovingCommentsAndLikesTestCase(TestCase):
+    def setUp(self):
+        self.client.post(reverse('register'), {
+            'username': 'poster',
+            'password': 'testpassword',
+            'group_name': 'testgroup1'
+        })
+        self.client.post(reverse('register'), {
+            'username': 'commenter',
+            'password': 'testpassword',
+            'group_name': 'testgroup1'
+        })
+        self.user = User.objects.get(username='poster')
+        self.commenter = User.objects.get(username='commenter')
+        self.public_post = Post.objects.create(
+            title='publicpost', content='publiccontent', is_public=1, group_name='testgroup1',
+            authenticated_permission=2, group_permission=2, author_permission=2, author=self.user
+        )
+        self.comment1 = Comment.objects.create(
+            content='comment1', author=self.user, post=self.public_post
+        )
+        self.comment2 = Comment.objects.create(
+            content='comment2', author=self.commenter, post=self.public_post
+        )
+        self.like1 = Like.objects.create(author=self.user, post=self.public_post)
+        self.like2 = Like.objects.create(author=self.commenter, post=self.public_post)
+
+        self.public_post2 = Post.objects.create(
+            title='publicpost2', content='publiccontent2', is_public=1, group_name='testgroup1',
+            authenticated_permission=2, group_permission=2, author_permission=2, author=self.user
+        )
+        self.comment3 = Comment.objects.create(
+            content='comment3', author=self.user, post=self.public_post2
+        )
+        self.comment4 = Comment.objects.create(
+            content='comment4', author=self.commenter, post=self.public_post2
+        )
+        self.like3 = Like.objects.create(author=self.user, post=self.public_post2)
+        self.like4 = Like.objects.create(author=self.commenter, post=self.public_post2)
+
+    def test_cascade_remove_comments_and_likes(self):
+        self.client.post(reverse('login'), {
+            'username': 'poster',
+            'password': 'testpassword'
+        })
+        response = self.client.delete(reverse('detailed_post', kwargs={'pk': self.public_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Post.objects.count(), 1)
+        self.assertEqual(Comment.objects.count(), 2)
+        self.assertEqual(Like.objects.count(), 2)
+        self.client.post(reverse('logout'))
+    
+    def test_cascade_remove_comments_and_likes_as_commenter(self):
+        self.client.post(reverse('login'), {
+            'username': 'commenter',
+            'password': 'testpassword'
+        })
+        response = self.client.delete(reverse('detailed_post', kwargs={'pk': self.public_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Post.objects.count(), 1)
+        self.assertEqual(Comment.objects.count(), 2)
+        self.assertEqual(Like.objects.count(), 2)
+        self.client.post(reverse('logout'))
+
+    def test_cascade_remove_comments_and_likes_as_anonymous(self):
+        response = self.client.delete(reverse('detailed_post', kwargs={'pk': self.public_post.id}))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Post.objects.count(), 2)
+        self.assertEqual(Comment.objects.count(), 4)
+        self.assertEqual(Like.objects.count(), 4)
