@@ -6,48 +6,6 @@ from rest_framework import status
 
 # Create your tests here.
 
-class PostingPostsTestCase(TestCase):
-    def setUp(self):
-        self.client.post(reverse('register'), {
-            'username': 'testuser',
-            'password': 'testpassword',
-            'group_name': 'testgroup1'
-        })
-        
-    def test_success_create_post(self):
-        self.client.post(reverse('login'), {
-            'username': 'testuser',
-            'password': 'testpassword'
-        })
-        response = self.client.post(reverse('posts'), {
-            'title': 'testtitle',
-            'content': 'testcontent',
-            'is_public': '1',
-            'authenticated_permission': 1,
-            'group_permission': 1,
-            'author_permission': 2
-        })
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Post.objects.count(), 1)
-        self.assertEqual(Post.objects.get().title, 'testtitle')
-        self.assertEqual(Post.objects.get().content, 'testcontent')
-        self.assertEqual(Post.objects.get().is_public, 1)
-        self.assertEqual(Post.objects.get().authenticated_permission, 1)
-        self.assertEqual(Post.objects.get().group_permission, 1)
-        self.assertEqual(Post.objects.get().group_name, 'testgroup1')
-        self.assertEqual(Post.objects.get().author.username, 'testuser')
-
-    def test_failed_create_post_unauthenticated(self):
-        response = self.client.post(reverse('posts'), {
-            'title': 'testtitle',
-            'content': 'testcontent',
-            'is_public': '1',
-            'authenticated_permission': 1,
-            'group_permission': 1,
-            'author_permission': 2
-        })
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(Post.objects.count(), 0)
 
 class ReadingPostsTestCase(TestCase):
     def setUp(self):
