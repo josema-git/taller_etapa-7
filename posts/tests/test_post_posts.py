@@ -18,7 +18,7 @@ def authenticated_client(client):
     
     return client
 
-def test_success_create_post(authenticated_client, db):
+def test_success_create_post(db, authenticated_client):
     response = authenticated_client.post(reverse('posts'), {
         'title': 'testtitle',
         'content': 'testcontent',
