@@ -12,7 +12,7 @@ urlpatterns = [
     path('comment/user/<int:user_pk>/', CommentViewset.as_view({'get':'retrieve_users'}), name='specific_user_comments'), # get request to list all visible comments of a specific user
 
     path('post/<int:post_pk>/likes/', LikeViewset.as_view({'post': 'create', 'get': 'list_posts'}), name='likes'), # post request to like a post and get request to list all post's likes
-    path('like/<int:pk>/', LikeViewset.as_view({'delete': 'destroy'}), name='unlike'), # delete request to unlike a post and get request to retrieve a like
+    path('post/<int:post_pk>/unlikes/', LikeViewset.as_view({'delete': 'destroy'}), name='unlike'), # delete request to unlike a post and get request to retrieve a like
     path('like/', LikeViewset.as_view({'get': 'list_all'}), name='all_likes'), # get request to list all likes
     path('likes/user/<int:user_pk>/', LikeViewset.as_view({'get': 'retrieve_users'}), name='specific_user_likes'), # get request to list all likes of a specific user
 ]

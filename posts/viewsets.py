@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
-from users.models import User
+from django.contrib.auth.models import User
 
 from .pagination import PostCommentPagination, LikePagination
 from .models import Post, Comment, Like
@@ -37,7 +37,7 @@ class PostViewset(viewsets.ModelViewSet):
     
     def list(self, request):
         posts = Post.objects.all()
-        visible_posts = []           
+        visible_posts = []
         for post in posts:
             if VisibleAndEditableBlogs().has_read_permission(request, post):
                 visible_posts.append(post)
@@ -258,17 +258,21 @@ class LikeViewset(viewsets.ModelViewSet):
         Like.objects.create(author=request.user, post=post)
         return Response({'success': 'Like created successfully'}, status=status.HTTP_201_CREATED)
     
-    def destroy(self, request, pk):
+    def destroy(self, request, post_pk):
+        if not request.user.is_authenticated:
+            return Response({'error': 'You are not authenticated'}, status=status.HTTP_403_FORBIDDEN)
+        
         try:
-            like = Like.objects.get(pk=pk)
+            post = Post.objects.get(pk=post_pk)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        if request.user != like.author:
-            return Response({'error': 'You do not have permission to delete this like'}, status=status.HTTP_403_FORBIDDEN)
+        if not VisibleAndEditableBlogs().has_read_permission(request, post):
+            return Response({'error': 'You do not have permission to unlike this post'}, status=status.HTTP_403_FORBIDDEN)        
         
-        if not VisibleAndEditableBlogs().has_read_permission(request, like.post):
-            return Response({'error': 'You do not have permission to delete this like'}, status=status.HTTP_403_FORBIDDEN)
-
+        try:
+            like = Like.objects.get(author=request.user, post=post)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         like.delete()
         return Response({'success': 'Like deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
