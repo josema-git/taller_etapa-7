@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
 
-from .pagination import PostCommentPagination, LikePagination
+from .pagination import LikePagination, PostPagination, CommentPagination
 from .models import Post, Comment, Like
 from .serializers import PostListSerializer, PostDetailSerializer , LikeSerializer, CommentSerializer
 from .permissions import VisibleAndEditableBlogs
@@ -11,7 +11,7 @@ from .permissions import VisibleAndEditableBlogs
 class PostViewset(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostListSerializer
-    pagination_class = PostCommentPagination
+    pagination_class = PostPagination
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -23,14 +23,14 @@ class PostViewset(viewsets.ModelViewSet):
             return Response({'error': 'You are not authenticated'}, status=status.HTTP_403_FORBIDDEN)
         try:
             author = request.user
-            group_name = request.user.group_name
+            team = request.user.team
             title = request.data.get('title')
             content = request.data.get('content')
             is_public = request.data.get('is_public')
             authenticated_permission = request.data.get('authenticated_permission')
             group_permission = request.data.get('group_permission')
             author_permission = request.data.get('author_permission')
-            Post.objects.create(author=author, group_name=group_name, title=title, content=content, is_public=is_public, authenticated_permission=authenticated_permission, group_permission=group_permission, author_permission=author_permission)
+            Post.objects.create(author=author, team=team, title=title, content=content, is_public=is_public, authenticated_permission=authenticated_permission, group_permission=group_permission, author_permission=author_permission)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'success': 'Post created successfully'}, status=status.HTTP_201_CREATED)
@@ -87,7 +87,7 @@ class PostViewset(viewsets.ModelViewSet):
 class CommentViewset(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    pagination_class = PostCommentPagination
+    pagination_class = CommentPagination
 
     def create(self, request, post_pk):
         if not request.user.is_authenticated:
