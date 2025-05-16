@@ -3,7 +3,7 @@ from .models import Post, Comment, Like
 from users.models import User
 from posts.permissions import VisibleAndEditableBlogs
 
-class PostListSerializer(serializers.ModelSerializer):
+class PostSerializer(serializers.ModelSerializer):
     author = serializers.CharField()
     likes = serializers.SerializerMethodField()
     comments = serializers.SerializerMethodField()
@@ -15,7 +15,7 @@ class PostListSerializer(serializers.ModelSerializer):
         model = Post
         fields = ['id', 'author', 'title', 'excerpt' , 'content', 'likes', 'comments', 'team', 'created_at', 'updated_at',
                   'is_public', 'authenticated_permission', 'group_permission', 'author_permission', 'permission_level', 'is_liked']
-        read_only_fields = ['id', 'author', 'created_at', 'updated_at', 'likes', 'comments', 'team', 'excerpt', 'permission_level']
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at', 'likes', 'comments', 'team', 'excerpt','is_liked' ,'permission_level']
         write_only_fields = ['is_public', 'authenticated_permission', 'group_permission', 'author_permission']
 
     def get_author(self, obj):
@@ -37,14 +37,6 @@ class PostListSerializer(serializers.ModelSerializer):
         if self.context['request'].user.is_authenticated:
             return Like.objects.filter(post=obj, author=self.context['request'].user).exists()
         return False
-        
-class PostDetailSerializer(PostListSerializer):
-
-    def get_likes(self, obj):
-        return LikeSerializer(Like.objects.filter(post=obj), many=True).data
-
-    def get_comments(self, obj):
-        return CommentSerializer(Comment.objects.filter(post=obj), many=True).data
 
 class LikeSerializer(serializers.ModelSerializer):
     author = serializers.CharField()

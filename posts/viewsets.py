@@ -5,18 +5,13 @@ from django.contrib.auth.models import User
 
 from .pagination import LikePagination, PostPagination, CommentPagination
 from .models import Post, Comment, Like
-from .serializers import PostListSerializer, PostDetailSerializer , LikeSerializer, CommentSerializer
+from .serializers import PostSerializer , LikeSerializer, CommentSerializer
 from .permissions import VisibleAndEditableBlogs
 
 class PostViewset(viewsets.ModelViewSet):
     queryset = Post.objects.all()
-    serializer_class = PostListSerializer
+    serializer_class = PostSerializer
     pagination_class = PostPagination
-
-    def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return PostDetailSerializer
-        return PostListSerializer
 
     def create(self, request):
         if not request.user.is_authenticated:
@@ -56,7 +51,17 @@ class PostViewset(viewsets.ModelViewSet):
         if not VisibleAndEditableBlogs().has_edit_permission(request, post):
             return Response({'error': 'No tienes permiso para editar este post'}, status=status.HTTP_403_FORBIDDEN)
         
-        serializer = self.get_serializer(post, data=request.data, partial=True)
+        permitted_data = {
+            'user': request.user,
+            'team': request.user.team,
+            'title': request.data.get('title', post.title),
+            'content': request.data.get('content', post.content),
+            'is_public': request.data.get('is_public', post.is_public),
+            'authenticated_permission': request.data.get('authenticated_permission', post.authenticated_permission),
+            'group_permission': request.data.get('group_permission', post.group_permission),
+            'author_permission': request.data.get('author_permission', post.author_permission),
+        }
+        serializer = self.get_serializer(post, data=permitted_data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
