@@ -16,6 +16,9 @@ class UserRegisterView(viewsets.ModelViewSet):
     def create(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
+
+        if not username or not password:
+            return Response({'message': 'username and password are required'}, status=status.HTTP_400_BAD_REQUEST)
         if User.objects.filter(username=username).exists():
             return Response({'message': 'an account with that email already exists'}, status=status.HTTP_400_BAD_REQUEST)
         User.objects.create_user(username=username, password=password, team='default_team')

@@ -6,24 +6,24 @@ from posts.models import Post, Comment, Like
 
 @pytest.fixture
 def create_users_and_comments():
-    poster = User.objects.create_user(username='poster', password='testpassword', group_name='testgroup1')
-    commenter1 = User.objects.create_user(username='commenter1', password='testpassword', group_name='testgroup1')
-    commenter2 = User.objects.create_user(username='commenter2', password='testpassword', group_name='testgroup2')
+    poster = User.objects.create_user(username='poster', password='testpassword', team='testgroup1')
+    commenter1 = User.objects.create_user(username='commenter1', password='testpassword', team='testgroup1')
+    commenter2 = User.objects.create_user(username='commenter2', password='testpassword', team='testgroup2')
     
     public_post = Post.objects.create(
-        title='publicpost', content='publiccontent', is_public=1, group_name='testgroup1',
+        title='publicpost', content='publiccontent', is_public=1, team='testgroup1',
         authenticated_permission=2, group_permission=2, author_permission=2, author=poster
     )
     authenticated_post = Post.objects.create(
-        title='authenticatedpost', content='authenticatedcontent', is_public=0, group_name='testgroup1',
+        title='authenticatedpost', content='authenticatedcontent', is_public=0, team='testgroup1',
         authenticated_permission=2, group_permission=2, author_permission=2, author=poster
     )
     group_post = Post.objects.create(
-        title='grouppost', content='groupcontent', is_public=0, group_name='testgroup1',
+        title='grouppost', content='groupcontent', is_public=0, team='testgroup1',
         authenticated_permission=0, group_permission=2, author_permission=2, author=poster
     )
     private_post = Post.objects.create(
-        title='privatepost', content='privatecontent', is_public=0, group_name='testgroup1',
+        title='privatepost', content='privatecontent', is_public=0, team='testgroup1',
         authenticated_permission=0, group_permission=0, author_permission=2, author=poster
     )
     
@@ -47,8 +47,8 @@ def create_users_and_comments():
 
 
 def test_cascade_remove_comments_and_likes(client, db, create_users_and_comments):
-    client.post(reverse('login'), {'username': 'poster', 'password': 'testpassword'})
-    response = client.delete(reverse('detailed_post', kwargs={'pk': create_users_and_comments['public_post'].id}))
+    token = client.post(reverse('token_obtain_pair'), {'username': 'poster', 'password': 'testpassword'})
+    response = client.delete(reverse('detailed_post', kwargs={'pk': create_users_and_comments['public_post'].id}), {}, HTTP_AUTHORIZATION=f'Bearer {token.data["access"]}')
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert Post.objects.count() == 3 
     assert Comment.objects.count() == 3 
@@ -57,7 +57,7 @@ def test_cascade_remove_comments_and_likes(client, db, create_users_and_comments
 
 
 def test_cascade_remove_comments_and_likes_as_commenter(client, db, create_users_and_comments):
-    client.post(reverse('login'), {'username': 'commenter1', 'password': 'testpassword'})
+    token = client.post(reverse('token_obtain_pair'), {'username': 'commenter1', 'password': 'testpassword'})
     response = client.delete(reverse('detailed_post', kwargs={'pk': create_users_and_comments['public_post'].id}))
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert Post.objects.count() == 3
