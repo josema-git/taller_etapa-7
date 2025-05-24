@@ -1,43 +1,38 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
-from users.models import User
+from django.contrib.auth.models import User
 
-from .pagination import PostCommentPagination, LikePagination
+from .pagination import LikePagination, PostPagination, CommentPagination
 from .models import Post, Comment, Like
-from .serializers import PostListSerializer, PostDetailSerializer , LikeSerializer, CommentSerializer
+from .serializers import PostSerializer , LikeSerializer, CommentSerializer
 from .permissions import VisibleAndEditableBlogs
 
 class PostViewset(viewsets.ModelViewSet):
     queryset = Post.objects.all()
-    serializer_class = PostListSerializer
-    pagination_class = PostCommentPagination
-
-    def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return PostDetailSerializer
-        return PostListSerializer
+    serializer_class = PostSerializer
+    pagination_class = PostPagination
 
     def create(self, request):
         if not request.user.is_authenticated:
             return Response({'error': 'You are not authenticated'}, status=status.HTTP_403_FORBIDDEN)
         try:
             author = request.user
-            group_name = request.user.group_name
+            team = request.user.team
             title = request.data.get('title')
             content = request.data.get('content')
             is_public = request.data.get('is_public')
             authenticated_permission = request.data.get('authenticated_permission')
             group_permission = request.data.get('group_permission')
             author_permission = request.data.get('author_permission')
-            Post.objects.create(author=author, group_name=group_name, title=title, content=content, is_public=is_public, authenticated_permission=authenticated_permission, group_permission=group_permission, author_permission=author_permission)
+            Post.objects.create(author=author, team=team, title=title, content=content, is_public=is_public, authenticated_permission=authenticated_permission, group_permission=group_permission, author_permission=author_permission)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({'success': 'Post created successfully'}, status=status.HTTP_201_CREATED)
+        return Response({'success': 'Post created successfully', }, status=status.HTTP_201_CREATED)
     
     def list(self, request):
         posts = Post.objects.all()
-        visible_posts = []           
+        visible_posts = []
         for post in posts:
             if VisibleAndEditableBlogs().has_read_permission(request, post):
                 visible_posts.append(post)
@@ -56,7 +51,17 @@ class PostViewset(viewsets.ModelViewSet):
         if not VisibleAndEditableBlogs().has_edit_permission(request, post):
             return Response({'error': 'No tienes permiso para editar este post'}, status=status.HTTP_403_FORBIDDEN)
         
-        serializer = self.get_serializer(post, data=request.data, partial=True)
+        permitted_data = {
+            'user': request.user,
+            'team': request.user.team,
+            'title': request.data.get('title', post.title),
+            'content': request.data.get('content', post.content),
+            'is_public': request.data.get('is_public', post.is_public),
+            'authenticated_permission': request.data.get('authenticated_permission', post.authenticated_permission),
+            'group_permission': request.data.get('group_permission', post.group_permission),
+            'author_permission': request.data.get('author_permission', post.author_permission),
+        }
+        serializer = self.get_serializer(post, data=permitted_data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -73,7 +78,7 @@ class PostViewset(viewsets.ModelViewSet):
         post.delete()
         return Response({'success': 'Post deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
     
-    def retrieve(self, request, pk):
+    def retrieve(self, request, pk): 
         try:
             post = Post.objects.get(pk=pk)
         except Exception as e:
@@ -87,7 +92,7 @@ class PostViewset(viewsets.ModelViewSet):
 class CommentViewset(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    pagination_class = PostCommentPagination
+    pagination_class = CommentPagination
 
     def create(self, request, post_pk):
         if not request.user.is_authenticated:
@@ -258,17 +263,21 @@ class LikeViewset(viewsets.ModelViewSet):
         Like.objects.create(author=request.user, post=post)
         return Response({'success': 'Like created successfully'}, status=status.HTTP_201_CREATED)
     
-    def destroy(self, request, pk):
+    def destroy(self, request, post_pk):
+        if not request.user.is_authenticated:
+            return Response({'error': 'You are not authenticated'}, status=status.HTTP_403_FORBIDDEN)
+        
         try:
-            like = Like.objects.get(pk=pk)
+            post = Post.objects.get(pk=post_pk)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        if request.user != like.author:
-            return Response({'error': 'You do not have permission to delete this like'}, status=status.HTTP_403_FORBIDDEN)
+        if not VisibleAndEditableBlogs().has_read_permission(request, post):
+            return Response({'error': 'You do not have permission to unlike this post'}, status=status.HTTP_403_FORBIDDEN)        
         
-        if not VisibleAndEditableBlogs().has_read_permission(request, like.post):
-            return Response({'error': 'You do not have permission to delete this like'}, status=status.HTTP_403_FORBIDDEN)
-
+        try:
+            like = Like.objects.get(author=request.user, post=post)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         like.delete()
         return Response({'success': 'Like deleted successfully'}, status=status.HTTP_204_NO_CONTENT)

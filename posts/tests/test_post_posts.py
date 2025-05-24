@@ -1,21 +1,15 @@
 import pytest
 from django.urls import reverse
 from rest_framework import status
+from users.models import User
 from posts.models import Post  
+from rest_framework.test import APIClient
 
 @pytest.fixture
-def authenticated_client(client):
-    client.post(reverse('register'), {
-        'username': 'testuser',
-        'password': 'testpassword',
-        'group_name': 'testgroup1'
-    })
-    
-    client.post(reverse('login'), {
-        'username': 'testuser',
-        'password': 'testpassword'
-    })
-    
+def authenticated_client():
+    client = APIClient()
+    user = User.objects.create_user(username='testuser', password='testpassword', team='testgroup1')
+    client.force_authenticate(user=user)
     return client
 
 def test_success_create_post(db, authenticated_client):
@@ -37,7 +31,7 @@ def test_success_create_post(db, authenticated_client):
     assert post.is_public == 1
     assert post.authenticated_permission == 1
     assert post.group_permission == 1
-    assert post.group_name == 'testgroup1'
+    assert post.team == 'testgroup1'
     assert post.author.username == 'testuser'
 
 def test_failed_create_post_unauthenticated(client, db):

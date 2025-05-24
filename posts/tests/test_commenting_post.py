@@ -3,34 +3,28 @@ from django.urls import reverse
 from rest_framework import status
 from users.models import User
 from posts.models import Post 
+from rest_framework.test import APIClient
 
 @pytest.fixture
-def setup_posts(client):
-    # Registrar un usuario
-    client.post(reverse('register'), {
-        'username': 'poster',
-        'password': 'testpassword',
-        'group_name': 'testgroup1'
-    })
-    
-    # Obtener el usuario registrado
-    user = User.objects.get(username='poster')
-    
+def setup_posts():
+    user = User.objects.create_user(
+        username='poster', password='testpassword', team='testgroup1'
+    )
     # Crear posts
     public_post = Post.objects.create(
-        title='publicpost', content='publiccontent', is_public=1, group_name='testgroup1',
+        title='publicpost', content='publiccontent', is_public=1, team='testgroup1',
         authenticated_permission=2, group_permission=2, author_permission=2, author=user
     )
     authenticated_post = Post.objects.create(
-        title='authenticatedpost', content='authenticatedcontent', is_public=0, group_name='testgroup1',
+        title='authenticatedpost', content='authenticatedcontent', is_public=0, team='testgroup1',
         authenticated_permission=2, group_permission=2, author_permission=2, author=user
     )
     group_post = Post.objects.create(
-        title='grouppost', content='groupcontent', is_public=0, group_name='testgroup1',
+        title='grouppost', content='groupcontent', is_public=0, team='testgroup1',
         authenticated_permission=0, group_permission=2, author_permission=2, author=user
     )
     private_post = Post.objects.create(
-        title='privatepost', content='privatecontent', is_public=0, group_name='testgroup1',
+        title='privatepost', content='privatecontent', is_public=0, team='testgroup1',
         authenticated_permission=0, group_permission=0, author_permission=2, author=user
     )
     
@@ -42,11 +36,9 @@ def setup_posts(client):
         'private_post': private_post
     }
 
-def test_update_and_delete_everything_as_author_or_superuser(client, db, setup_posts):
-    client.post(reverse('login'), {
-        'username': 'poster',
-        'password': 'testpassword'
-    })
+def test_update_and_delete_everything_as_author_or_superuser(db, setup_posts):
+    client = APIClient()
+    client.force_authenticate(user=setup_posts['user'])
     
     public_post = setup_posts['public_post']
     authenticated_post = setup_posts['authenticated_post']
@@ -55,8 +47,7 @@ def test_update_and_delete_everything_as_author_or_superuser(client, db, setup_p
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': public_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_200_OK
     assert Post.objects.get(id=public_post.id).title == 'newtitle'
@@ -67,8 +58,7 @@ def test_update_and_delete_everything_as_author_or_superuser(client, db, setup_p
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': authenticated_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_200_OK
     assert Post.objects.get(id=authenticated_post.id).title == 'newtitle'
@@ -79,8 +69,7 @@ def test_update_and_delete_everything_as_author_or_superuser(client, db, setup_p
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': group_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_200_OK
     assert Post.objects.get(id=group_post.id).title == 'newtitle'
@@ -91,8 +80,7 @@ def test_update_and_delete_everything_as_author_or_superuser(client, db, setup_p
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': private_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_200_OK
     assert Post.objects.get(id=private_post.id).title == 'newtitle'
@@ -104,18 +92,13 @@ def test_update_and_delete_everything_as_author_or_superuser(client, db, setup_p
     # Cerrar sesión
     client.post(reverse('logout'))
 
-def test_update_and_delete_public_authenticated_and_group_posts(client, db, setup_posts):
-    client.post(reverse('register'), {
-        'username': 'reader',
-        'password': 'testpassword',
-        'group_name': 'testgroup1'
-    })
-    client.post(reverse('login'), {
-        'username': 'reader',
-        'password': 'testpassword'
-    })
+def test_update_and_delete_public_authenticated_and_group_posts(db, setup_posts):
+    client = APIClient()
+    user = User.objects.create_user(
+        username='reader', password='testpassword', team='testgroup1'
+    )
+    client.force_authenticate(user=user)
     
-    # Obtener los posts creados en la fixture
     public_post = setup_posts['public_post']
     authenticated_post = setup_posts['authenticated_post']
     group_post = setup_posts['group_post']
@@ -123,8 +106,7 @@ def test_update_and_delete_public_authenticated_and_group_posts(client, db, setu
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': public_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_200_OK
     assert Post.objects.get(id=public_post.id).title == 'newtitle'
@@ -135,8 +117,7 @@ def test_update_and_delete_public_authenticated_and_group_posts(client, db, setu
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': authenticated_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_200_OK
     assert Post.objects.get(id=authenticated_post.id).title == 'newtitle'
@@ -147,8 +128,7 @@ def test_update_and_delete_public_authenticated_and_group_posts(client, db, setu
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': group_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_200_OK
     assert Post.objects.get(id=group_post.id).title == 'newtitle'
@@ -159,8 +139,7 @@ def test_update_and_delete_public_authenticated_and_group_posts(client, db, setu
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': private_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert Post.objects.get(id=private_post.id).title == 'privatepost'
@@ -171,16 +150,12 @@ def test_update_and_delete_public_authenticated_and_group_posts(client, db, setu
     
     client.post(reverse('logout'))
 
-def test_update_and_delete_public_and_authenticated_posts(client, db, setup_posts):
-    client.post(reverse('register'), {
-        'username': 'reader',
-        'password': 'testpassword',
-        'group_name': 'testgroup2'
-    })
-    client.post(reverse('login'), {
-        'username': 'reader',
-        'password': 'testpassword'
-    })
+def test_update_and_delete_public_and_authenticated_posts(db, setup_posts):
+    client = APIClient()
+    user = User.objects.create_user(
+        username='reader', password='testpassword', team='testgroup2'
+    )
+    client.force_authenticate(user=user)
     
     public_post = setup_posts['public_post']
     authenticated_post = setup_posts['authenticated_post']
@@ -190,7 +165,6 @@ def test_update_and_delete_public_and_authenticated_posts(client, db, setup_post
     response = client.put(
         reverse('detailed_post', kwargs={'pk': public_post.id}),
         {'title': 'newtitle'},
-        content_type='application/json'
     )
     assert response.status_code == status.HTTP_200_OK
     assert Post.objects.get(id=public_post.id).title == 'newtitle'
@@ -201,8 +175,7 @@ def test_update_and_delete_public_and_authenticated_posts(client, db, setup_post
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': authenticated_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_200_OK
     assert Post.objects.get(id=authenticated_post.id).title == 'newtitle'
@@ -213,8 +186,7 @@ def test_update_and_delete_public_and_authenticated_posts(client, db, setup_post
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': group_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert Post.objects.get(id=group_post.id).title == 'grouppost'
@@ -225,8 +197,7 @@ def test_update_and_delete_public_and_authenticated_posts(client, db, setup_post
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': private_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert Post.objects.get(id=private_post.id).title == 'privatepost'
@@ -238,7 +209,9 @@ def test_update_and_delete_public_and_authenticated_posts(client, db, setup_post
     # Cerrar sesión
     client.post(reverse('logout'))
 
-def test_update_and_delete_public_posts(client, db, setup_posts):
+def test_update_and_delete_public_posts(db, setup_posts):
+    client = APIClient()
+
     public_post = setup_posts['public_post']
     authenticated_post = setup_posts['authenticated_post']
     group_post = setup_posts['group_post']
@@ -246,9 +219,9 @@ def test_update_and_delete_public_posts(client, db, setup_posts):
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': public_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
+    print(response)
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert Post.objects.get(id=public_post.id).title == 'publicpost'
     
@@ -258,8 +231,7 @@ def test_update_and_delete_public_posts(client, db, setup_posts):
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': authenticated_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert Post.objects.get(id=authenticated_post.id).title == 'authenticatedpost'
@@ -270,8 +242,7 @@ def test_update_and_delete_public_posts(client, db, setup_posts):
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': group_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert Post.objects.get(id=group_post.id).title == 'grouppost'
@@ -282,8 +253,7 @@ def test_update_and_delete_public_posts(client, db, setup_posts):
     
     response = client.put(
         reverse('detailed_post', kwargs={'pk': private_post.id}),
-        {'title': 'newtitle'},
-        content_type='application/json'
+        {'title': 'newtitle'}
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert Post.objects.get(id=private_post.id).title == 'privatepost'

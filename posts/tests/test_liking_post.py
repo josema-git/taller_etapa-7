@@ -3,24 +3,25 @@ from django.urls import reverse
 from rest_framework import status
 from users.models import User
 from posts.models import Post, Like
+from rest_framework.test import APIClient
 
 @pytest.fixture
 def create_user_and_posts():
-    user = User.objects.create_user(username='poster', password='testpassword', group_name='testgroup1')
+    user = User.objects.create_user(username='poster', password='testpassword', team='testgroup1')
     public_post = Post.objects.create(
-        title='publicpost', content='publiccontent', is_public=1, group_name='testgroup1',
+        title='publicpost', content='publiccontent', is_public=1, team='testgroup1',
         authenticated_permission=2, group_permission=2, author_permission=2, author=user
     )
     authenticated_post = Post.objects.create(
-        title='authenticatedpost', content='authenticatedcontent', is_public=0, group_name='testgroup1',
+        title='authenticatedpost', content='authenticatedcontent', is_public=0, team='testgroup1',
         authenticated_permission=2, group_permission=2, author_permission=2, author=user
     )
     group_post = Post.objects.create(
-        title='grouppost', content='groupcontent', is_public=0, group_name='testgroup1',
+        title='grouppost', content='groupcontent', is_public=0, team='testgroup1',
         authenticated_permission=0, group_permission=2, author_permission=2, author=user
     )
     private_post = Post.objects.create(
-        title='privatepost', content='privatecontent', is_public=0, group_name='testgroup1',
+        title='privatepost', content='privatecontent', is_public=0, team='testgroup1',
         authenticated_permission=0, group_permission=0, author_permission=2, author=user
     )
 
@@ -32,13 +33,14 @@ def create_user_and_posts():
         "private_post": private_post,
     }
 
-def test_like_everything_as_author_or_superuser(client, db, create_user_and_posts):
+def test_like_everything_as_author_or_superuser(db, create_user_and_posts):
+    client = APIClient()
     public_post = create_user_and_posts['public_post']
     authenticated_post = create_user_and_posts['authenticated_post']
     group_post = create_user_and_posts['group_post']
     private_post = create_user_and_posts['private_post']
 
-    client.post(reverse('login'), {'username': 'poster', 'password': 'testpassword'}) 
+    client.force_authenticate(user=create_user_and_posts['user'])
 
     response = client.post(reverse('likes', kwargs={'post_pk': public_post.id}))
     assert response.status_code == status.HTTP_201_CREATED
@@ -66,9 +68,10 @@ def test_like_everything_as_author_or_superuser(client, db, create_user_and_post
 
     client.post(reverse('logout'))
 
-def test_like_public_authenticated_and_group_posts(client, db, create_user_and_posts):
-    User.objects.create_user(username='reader', password='testpassword', group_name='testgroup1')
-    client.post(reverse('login'), {'username': 'reader', 'password': 'testpassword'})
+def test_like_public_authenticated_and_group_posts(db, create_user_and_posts):
+    client = APIClient()
+    user = User.objects.create_user(username='reader', password='testpassword', team='testgroup1')
+    client.force_authenticate(user=user)
     
     public_post = create_user_and_posts['public_post']
     authenticated_post = create_user_and_posts['authenticated_post']
@@ -99,9 +102,10 @@ def test_like_public_authenticated_and_group_posts(client, db, create_user_and_p
 
     client.post(reverse('logout'))
 
-def test_like_public_and_authenticated_posts(client, db, create_user_and_posts):
-    User.objects.create_user(username='reader', password='testpassword', group_name='testgroup2')
-    client.post(reverse('login'), {'username': 'reader', 'password': 'testpassword'})
+def test_like_public_and_authenticated_posts(db, create_user_and_posts):
+    client = APIClient()
+    user = User.objects.create_user(username='reader', password='testpassword', team='testgroup2')
+    client.force_authenticate(user=user)
     
     public_post = create_user_and_posts['public_post']
     authenticated_post = create_user_and_posts['authenticated_post']

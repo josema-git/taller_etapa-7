@@ -5,7 +5,7 @@ class Post(models.Model):
     title = models.CharField(max_length=100)
     content = models.TextField()
     author = models.ForeignKey(User, on_delete=models.CASCADE)
-    group_name = models.CharField(max_length=100)
+    team = models.CharField(max_length=100)
     permission_options = (
         (0, 'none'),
         (1, 'read_only'),
@@ -18,7 +18,6 @@ class Post(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
     
 class Comment(models.Model):
     content = models.TextField()

@@ -1,46 +1,27 @@
 from rest_framework import viewsets
 from rest_framework import status
-from django.contrib.auth.models import Group
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.contrib.auth import login, logout, authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
-from .serializers import UserSerializer
+from .serializers import UserSerializer, UserRetrieveSerializer
 
 # Create your views here.
 
 class UserRegisterView(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-
-    def create(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
-        team_name = request.data.get('group_name', 'default_group')
-        if team_name == '': team_name = 'default_group'
-        if User.objects.filter(username=username).exists():
-            return Response({'message': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        team, _ = Group.objects.get_or_create(name=team_name)
-        if username == '' or password == '':
-            return Response({'message': 'Username and password cannot be empty'}, status=status.HTTP_400_BAD_REQUEST)
-        user = User.objects.create_user(username=username, password=password, group_name=team_name)
-        user.groups.add(team)
-        return Response({'message': 'User created'}, status=status.HTTP_201_CREATED)
-
-class UserLoginView(viewsets.ModelViewSet):
     queryset = User.objects.none()
     serializer_class = UserSerializer
 
     def create(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
-        user = authenticate(username=username, password=password)
-        if user is not None:
-            login(request, user)
-            serializer = UserSerializer(user)
-            return Response({'message': 'Login successful', 'data': serializer.data}, status=status.HTTP_200_OK)
-        return Response({'message': 'Login failed'}, status=status.HTTP_400_BAD_REQUEST)
+        if not username or not password:
+            return Response({'message': 'username and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(username=username).exists():
+            return Response({'message': 'an account with that email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        User.objects.create_user(username=username, password=password, team='default_team')
+        return Response({'message': 'User created succesfully'}, status=status.HTTP_201_CREATED)
 
 class UserLogoutView(viewsets.ModelViewSet):
     queryset = User.objects.none()
@@ -48,5 +29,23 @@ class UserLogoutView(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request):
-        logout(request)
+        try:
+            refresh = request.data['refresh']
+            token = RefreshToken(refresh)
+            token.blacklist()
+        except KeyError:
+            return Response({'message': 'Refresh token is required'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'message': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
+    
+class UserViewset(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserRetrieveSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
+
+    def list(self, request):
+        user = User.objects.filter(id=request.user.id)
+        serializer = self.get_serializer(user.first())
+        return Response(serializer.data, status=status.HTTP_200_OK)
