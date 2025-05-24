@@ -28,7 +28,7 @@ class PostViewset(viewsets.ModelViewSet):
             Post.objects.create(author=author, team=team, title=title, content=content, is_public=is_public, authenticated_permission=authenticated_permission, group_permission=group_permission, author_permission=author_permission)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({'success': 'Post created successfully'}, status=status.HTTP_201_CREATED)
+        return Response({'success': 'Post created successfully', }, status=status.HTTP_201_CREATED)
     
     def list(self, request):
         posts = Post.objects.all()
@@ -78,7 +78,7 @@ class PostViewset(viewsets.ModelViewSet):
         post.delete()
         return Response({'success': 'Post deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
     
-    def retrieve(self, request, pk):
+    def retrieve(self, request, pk): 
         try:
             post = Post.objects.get(pk=pk)
         except Exception as e:

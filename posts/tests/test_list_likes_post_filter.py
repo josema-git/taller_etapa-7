@@ -3,15 +3,16 @@ from django.urls import reverse
 from rest_framework import status
 from users.models import User
 from posts.models import Post, Like
+from rest_framework.test import APIClient
 
 @pytest.fixture
 def create_users_and_likes():
-    poster = User.objects.create_user(username='poster', password='testpassword', group_name='testgroup1')
-    liker1 = User.objects.create_user(username='liker1', password='testpassword', group_name='testgroup1')
-    liker2 = User.objects.create_user(username='liker2', password='testpassword', group_name='testgroup1')
+    poster = User.objects.create_user(username='poster', password='testpassword', team='testgroup1')
+    liker1 = User.objects.create_user(username='liker1', password='testpassword', team='testgroup1')
+    liker2 = User.objects.create_user(username='liker2', password='testpassword', team='testgroup1')
     
     public_post = Post.objects.create(
-        title='publicpost', content='publiccontent', is_public=1, group_name='testgroup1',
+        title='publicpost', content='publiccontent', is_public=1, team='testgroup1',
         authenticated_permission=2, group_permission=2, author_permission=2, author=poster
     )
     
@@ -28,10 +29,10 @@ def create_users_and_likes():
     }
 
 
-def test_get_likes_as_author_or_superuser(client, db, create_users_and_likes):
+def test_get_likes_as_author_or_superuser(db, create_users_and_likes):
+    client = APIClient()
     public_post = create_users_and_likes['public_post']
-
-    client.post(reverse('login'), {'username': 'poster', 'password': 'testpassword'})
+    client.force_authenticate(user=create_users_and_likes['poster'])
     response = client.get(reverse('likes', kwargs={'post_pk': public_post.id}))
     
     assert response.status_code == status.HTTP_200_OK
@@ -40,9 +41,9 @@ def test_get_likes_as_author_or_superuser(client, db, create_users_and_likes):
     client.post(reverse('logout'))
 
 
-def test_get_likes_as_user(client, db, create_users_and_likes):
-    client.post(reverse('register'), {'username': 'liker1', 'password': 'testpassword', 'group_name': 'testgroup1'})
-    client.post(reverse('login'), {'username': 'liker1', 'password': 'testpassword'})
+def test_get_likes_as_user(db, create_users_and_likes):
+    client = APIClient()
+    client.force_authenticate(user=create_users_and_likes['liker1'])
     
     public_post = create_users_and_likes['public_post']
     response = client.get(reverse('likes', kwargs={'post_pk': public_post.id}))

@@ -18,7 +18,7 @@ class PostPagination(Pagination):
     page_size = 10
 
 class CommentPagination(Pagination):
-    page_size = 10
+    page_size = 5
 
 class LikePagination(Pagination):
     page_size = 15

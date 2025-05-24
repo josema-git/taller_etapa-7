@@ -3,26 +3,27 @@ from django.urls import reverse
 from rest_framework import status
 from users.models import User
 from posts.models import Post, Comment
+from rest_framework.test import APIClient
 
 @pytest.fixture
 def create_users_and_comments():
-    poster = User.objects.create_user(username='poster', password='testpassword', group_name='testgroup1')
-    commenter1 = User.objects.create_user(username='commenter1', password='testpassword', group_name='testgroup1')
+    poster = User.objects.create_user(username='poster', password='testpassword', team='testgroup1')
+    commenter1 = User.objects.create_user(username='commenter1', password='testpassword', team='testgroup1')
     
     public_post = Post.objects.create(
-        title='publicpost', content='publiccontent', is_public=1, group_name='testgroup1',
+        title='publicpost', content='publiccontent', is_public=1, team='testgroup1',
         authenticated_permission=2, group_permission=2, author_permission=2, author=poster
     )
     authenticated_post = Post.objects.create(
-        title='authenticatedpost', content='authenticatedcontent', is_public=0, group_name='testgroup1',
+        title='authenticatedpost', content='authenticatedcontent', is_public=0, team='testgroup1',
         authenticated_permission=2, group_permission=2, author_permission=2, author=poster
     )
     group_post = Post.objects.create(
-        title='grouppost', content='groupcontent', is_public=0, group_name='testgroup1',
+        title='grouppost', content='groupcontent', is_public=0, team='testgroup1',
         authenticated_permission=0, group_permission=2, author_permission=2, author=poster
     )
     private_post = Post.objects.create(
-        title='privatepost', content='privatecontent', is_public=0, group_name='testgroup1',
+        title='privatepost', content='privatecontent', is_public=0, team='testgroup1',
         authenticated_permission=0, group_permission=0, author_permission=2, author=poster
     )
     
@@ -44,8 +45,9 @@ def create_users_and_comments():
     }
 
 
-def test_get_comments_as_author_or_superuser(client, db, create_users_and_comments):
-    client.post(reverse('login'), {'username': 'poster', 'password': 'testpassword'})
+def test_get_comments_as_author_or_superuser(db, create_users_and_comments):
+    client = APIClient()
+    client.force_authenticate(user=create_users_and_comments['poster'])
     
     for post_key in ['public_post', 'authenticated_post', 'group_post', 'private_post']:
         post = create_users_and_comments[post_key]
@@ -56,8 +58,9 @@ def test_get_comments_as_author_or_superuser(client, db, create_users_and_commen
     client.post(reverse('logout'))
 
 
-def test_get_comments_as_user(client, db, create_users_and_comments):
-    client.post(reverse('login'), {'username': 'commenter1', 'password': 'testpassword'})
+def test_get_comments_as_user(db, create_users_and_comments):
+    client = APIClient()
+    client.force_authenticate(user=create_users_and_comments['commenter1'])
     
     for post_key in ['public_post', 'authenticated_post', 'group_post']:
         post = create_users_and_comments[post_key]

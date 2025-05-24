@@ -16,7 +16,6 @@ class UserRegisterView(viewsets.ModelViewSet):
     def create(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
-
         if not username or not password:
             return Response({'message': 'username and password are required'}, status=status.HTTP_400_BAD_REQUEST)
         if User.objects.filter(username=username).exists():
@@ -31,7 +30,11 @@ class UserLogoutView(viewsets.ModelViewSet):
 
     def create(self, request):
         try:
-            RefreshToken(request.data['refresh']).blacklist()
+            refresh = request.data['refresh']
+            token = RefreshToken(refresh)
+            token.blacklist()
+        except KeyError:
+            return Response({'message': 'Refresh token is required'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'message': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
